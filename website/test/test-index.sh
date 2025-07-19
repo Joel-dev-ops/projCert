@@ -1,7 +1,18 @@
 #!/bin/bash
 set -e
 
-# Simple test: curl homepage and check for expected content
+echo "Waiting for Apache to start..."
+
+# Wait for port 80 to be ready (max 10 seconds)
+for i in {1..10}; do
+  if curl -s http://localhost > /dev/null; then
+    echo "Apache is up!"
+    break
+  fi
+  echo "Apache not ready yet... retrying in 1s"
+  sleep 1
+done
+
 echo "Testing PHP app homepage..."
 
 response=$(curl -s http://localhost)
@@ -15,3 +26,4 @@ else
   echo "$response"
   exit 1
 fi
+
