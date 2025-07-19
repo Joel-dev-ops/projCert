@@ -1,0 +1,64 @@
+pipeline {
+    agent none
+
+    environment {
+        DOCKER_IMAGE = 'my-php-webapp:latest'
+        TEST_CONTAINER = 'php-webapp-test'
+    }
+    stages {
+
+        stage('Checkout') {
+            agent { label 'master' }
+            steps {
+                echo "Cloning repository on master..."
+                checkout scm
+            }
+        }
+
+        stage('Provision Docker on Test Server') {
+            agent { label 'master' }
+            steps {
+                echo "Running Ansible to install Docker on the test server..."
+                sh 'ansible-playbook config/ansible_play_book.yml'
+            }
+        }
+
+        stage('Build Docker Image on Test Server') {
+            agent { label 'test-node' }
+            steps {
+                echo "Building Docker image on test (slave) node..."
+                sh "docker build -t $DOCKER_IMAGE -f Dockerfile website"
+            }
+        }
+
+        stage('Run Tests in Docker') {
+            agent { label 'test-node' }
+            steps {
+                echo "Running PHP tests inside Docker container..."
+                sh """
+                    docker run --rm -v \$PWD/website/test:/tests $DOCKER_IMAGE /bin/bash /tests/test-index.sh
+                """
+            }
+        }
+
+        stage('Deploy to Production (Jenkins Master)') {
+            agent { label 'master' }
+            steps {
+                echo "Deploying container to Jenkins master (production environment)..."
+                sh './deploy/deploy.sh'
+            }
+        }
+    }
+
+    post {
+        failure {
+            echo "❌ Pipeline failed. Cleaning up test container..."
+            sh """
+                docker rm -f $TEST_CONTAINER || true
+            """
+        }
+        success {
+            echo "✅ Pipeline completed successfully."
+        }
+    }
+}
