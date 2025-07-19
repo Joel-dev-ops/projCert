@@ -11,6 +11,7 @@ pipeline {
             agent { label 'master' }
             steps {
                 echo "Cloning repository on master..."
+                cleanWs()
                 checkout scm
             }
         }
