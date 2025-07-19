@@ -36,7 +36,7 @@ pipeline {
             steps {
                 echo "Running PHP tests inside Docker container..."
                 sh """
-                    docker run --rm -v \$PWD/test:/tests $DOCKER_IMAGE /bin/bash /tests/test-index.sh
+                    docker run --rm -v \$PWD/website/test:/tests $DOCKER_IMAGE /bin/bash /tests/test-index.sh
                 """
             }
         }
