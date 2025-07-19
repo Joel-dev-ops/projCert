@@ -1,2 +1,3 @@
 FROM devopsedu/webapp
-COPY ./app/ /var/www/html/
+COPY . /var/www/html/
+
