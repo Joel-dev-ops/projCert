@@ -1,9 +1,9 @@
 FROM devopsedu/webapp
 
-ADD proj /var/www/html/
+COPY website/ /var/www/html/
 
-RUN rm /var/www/html/index.html
+RUN rm -f /var/www/html/index.html
 
 EXPOSE 80
 
-CMD apachectl -D FOREGROUND
+CMD ["apachectl", "-D", "FOREGROUND"]
