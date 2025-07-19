@@ -19,7 +19,7 @@ pipeline {
             agent { label 'master' }
             steps {
                 echo "Running Ansible to install Docker on the test server..."
-                sh 'ansible-playbook config/tools_ans.yml'
+                sh 'cd website ansible-playbook config/tools_ans.yml'
             }
         }
 
@@ -27,7 +27,7 @@ pipeline {
             agent { label 'test-node' }
             steps {
                 echo "Building Docker image on test (slave) node..."
-                sh "docker build -t $DOCKER_IMAGE -f config/docker/Dockerfile ."
+                sh "docker build -t $DOCKER_IMAGE -f website/config/docker/Dockerfile website"
             }
         }
 
