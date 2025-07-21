@@ -71,25 +71,22 @@ pipeline {
                             docker rm -f my-php-app || true
                             docker run -d --name my-php-app -p ${DEPLOY_PORT}:80 $FULL_IMAGE
                         '''
-                        
-                        echo "Fetching public IP for deployment URL..."
+
+                        // Fetch public IP with clean output
                         def publicIp = sh (
                             script: '''
-                                # Try AWS metadata service
                                 ip=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null)
                                 if [ -z "$ip" ]; then
-                                  echo "AWS metadata IP not found, trying external IP service..."
                                   ip=$(curl -s https://checkip.amazonaws.com)
                                 fi
                                 if [ -z "$ip" ]; then
-                                  echo "External IP service failed, using hostname IP as fallback..."
                                   ip=$(hostname -I | awk '{print $1}')
                                 fi
                                 echo $ip
                             ''',
                             returnStdout: true
                         ).trim()
-                        echo "Detected public IP: ${publicIp}"
+
                         env.PUBLIC_IP = publicIp
                         echo "✅ Deployment complete. App is running at: http://${publicIp}:${DEPLOY_PORT}/"
                     }
