@@ -27,11 +27,11 @@ echo "Testing PHP app homepage..."
 
 response=$(curl -s http://localhost)
 
-if echo "$response" | grep -q "<form"; then
+if echo "$response" | grep -q "Welcome to test project"; then
   echo "Homepage test passed!"
   exit 0
 else
-  echo "Homepage test failed: Form not found"
+  echo "Homepage test failed: Expected text not found"
   echo "Response was:"
   echo "$response"
   exit 1
