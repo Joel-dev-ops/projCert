@@ -3,14 +3,14 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = 'my-php-webapp:latest'
-        TEST_CONTAINER = 'php-webapp-test'
+        DEPLOY_PORT = '8081'
     }
-    stages {
 
+    stages {
         stage('Checkout') {
             agent { label 'master' }
             steps {
-                echo "Cloning repository on master..."
+                echo "🔄 Cloning repository on master..."
                 cleanWs()
                 checkout scm
             }
@@ -19,7 +19,7 @@ pipeline {
         stage('Provision Docker on Test Server') {
             agent { label 'master' }
             steps {
-                echo "Running Ansible to install Docker on the test server..."
+                echo "⚙️ Running Ansible to install Docker on the test server..."
                 sh 'ansible-playbook config/ansible_play_book.yml'
             }
         }
@@ -27,7 +27,7 @@ pipeline {
         stage('Build Docker Image on Test Server') {
             agent { label 'test-node' }
             steps {
-                echo "Building Docker image on test (slave) node..."
+                echo "🛠️ Building Docker image on test (slave) node..."
                 sh "docker build -t $DOCKER_IMAGE -f Dockerfile ."
             }
         }
@@ -35,31 +35,30 @@ pipeline {
         stage('Run Tests in Docker') {
             agent { label 'test-node' }
             steps {
-                echo "Running PHP tests inside Docker container..."
+                echo "🧪 Running PHP app test script inside Docker container..."
                 sh """
-                    docker run --rm -v \$PWD/website/test:/tests $DOCKER_IMAGE /bin/bash /tests/test-index.sh
+                    docker run --rm \
+                      -v \$PWD/website/test:/tests \
+                      $DOCKER_IMAGE /bin/bash /tests/test-index.sh
                 """
             }
         }
 
-        stage('Deploy to Production (Jenkins Master)') {
-            agent { label 'master' }
+        stage('Deploy to Production (Jenkins Test Node)') {
+            agent { label 'test-node' }
             steps {
-                echo "Deploying container to Jenkins master (production environment)..."
-                sh './deploy/deploy.sh'
+                echo "🚀 Deploying container on test node (acting as production)..."
+                sh "PORT=$DEPLOY_PORT IMAGE=$DOCKER_IMAGE bash config/deploy.sh"
             }
         }
     }
 
     post {
-        failure {
-            echo "❌ Pipeline failed. Cleaning up test container..."
-            sh """
-                docker rm -f $TEST_CONTAINER || true
-            """
-        }
         success {
-            echo "✅ Pipeline completed successfully."
+            echo "✅ Pipeline completed successfully. App deployed on port $DEPLOY_PORT."
+        }
+        failure {
+            echo "❌ Pipeline failed. No deployment performed."
         }
     }
 }
