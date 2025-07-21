@@ -29,32 +29,53 @@ pipeline {
         stage('Build Docker Image on Test Server') {
             agent { label 'test-node' }
             steps {
-                echo "🛠️ Building Docker image on test (slave) node..."
-                sh "docker build -t $FULL_IMAGE -f Dockerfile ."
+                script {
+                    try {
+                        echo "🛠️ Building Docker image on test (slave) node..."
+                        sh "docker build -t $FULL_IMAGE -f Dockerfile ."
+                    } catch (e) {
+                        cleanupContainer()
+                        error "Build Docker Image stage failed!"
+                    }
+                }
             }
         }
 
         stage('Run Tests in Docker') {
             agent { label 'test-node' }
             steps {
-                echo "🧪 Running PHP app test script inside Docker container..."
-                sh """
-                    docker run --rm \
-                      -v \$PWD/website/test:/tests \
-                      $FULL_IMAGE /bin/bash /tests/test-index.sh
-                """
+                script {
+                    try {
+                        echo "🧪 Running PHP app test script inside Docker container..."
+                        sh """
+                            docker run --rm \
+                            -v \$PWD/website/test:/tests \
+                            $FULL_IMAGE /bin/bash /tests/test-index.sh
+                        """
+                    } catch (e) {
+                        cleanupContainer()
+                        error "Run Tests in Docker stage failed!"
+                    }
+                }
             }
         }
 
         stage('Docker Login & Push to Docker Hub') {
             agent { label 'test-node' }
             steps {
-                echo "🔐 Logging into Docker Hub and pushing image..."
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh '''
-                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                        docker push $FULL_IMAGE
-                    '''
+                script {
+                    try {
+                        echo "🔐 Logging into Docker Hub and pushing image..."
+                        withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                            sh '''
+                                echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                                docker push $FULL_IMAGE
+                            '''
+                        }
+                    } catch (e) {
+                        cleanupContainer()
+                        error "Docker Login & Push stage failed!"
+                    }
                 }
             }
         }
@@ -62,15 +83,17 @@ pipeline {
         stage('Deploy to Production (Master Node)') {
             agent { label 'master' }
             steps {
-                echo "🚀 Pulling and deploying image on Jenkins master (production)..."
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    script {
-                        sh '''
-                            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                            docker pull $FULL_IMAGE
-                            docker rm -f my-php-app || true
-                            docker run -d --name my-php-app -p ${DEPLOY_PORT}:80 $FULL_IMAGE
-                        '''
+                script {
+                    try {
+                        echo "🚀 Pulling and deploying image on Jenkins master (production)..."
+                        withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                            sh '''
+                                echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                                docker pull $FULL_IMAGE
+                                docker rm -f my-php-app || true
+                                docker run -d --name my-php-app -p ${DEPLOY_PORT}:80 $FULL_IMAGE
+                            '''
+                        }
 
                         // Fetch public IP with clean output
                         def publicIp = sh (
@@ -89,6 +112,9 @@ pipeline {
 
                         env.PUBLIC_IP = publicIp
                         echo "✅ Deployment complete. App is running at: http://${publicIp}:${DEPLOY_PORT}/"
+                    } catch (e) {
+                        cleanupContainer()
+                        error "Deploy to Production stage failed!"
                     }
                 }
             }
@@ -102,7 +128,13 @@ pipeline {
             }
         }
         failure {
-            echo "❌ Pipeline failed. No deployment performed."
+            echo "❌ Pipeline failed. Cleaning up running container..."
+            cleanupContainer()
         }
     }
+}
+
+def cleanupContainer() {
+    echo "🧹 Cleaning up running container (my-php-app) if exists..."
+    sh "docker rm -f my-php-app || true"
 }
