@@ -5,7 +5,7 @@ echo "Waiting for Apache to start..."
 
 # Wait for port 80 to be ready (max 10 seconds)
 for i in {1..10}; do
-  if curl -s http://localhost > /dev/null; then
+  if curl -s  http://127.0.0.1 > /dev/null; then
     echo "Apache is up!"
     break
   fi
