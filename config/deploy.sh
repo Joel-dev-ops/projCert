@@ -19,5 +19,5 @@ docker run -d \
   $IMAGE
 
 # Get host IP dynamically
-HOST_IP=$(hostname -I | awk '{print $1}')
+HOST_IP=$(curl -s http://checkip.amazonaws.com)
 echo "✅ Deployment complete. App is running at: http://$HOST_IP:$PORT/"
